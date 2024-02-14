@@ -18,13 +18,13 @@ return {
           {
             client_id = {
               type = "string",
-              required = false
+              required = true
             }
           },
           {
             client_secret = {
               type = "string",
-              required = false
+              required = true
             }
           },
           {
@@ -304,39 +304,6 @@ return {
             https_proxy = {
               type = "string",
               required = false
-            }
-          },
-          {
-            authorization_scopes_required = {
-              required = false,
-              type = "array",
-              elements = {
-                type = "string"
-              }
-            }
-          },
-          {
-            consumer_claim = {
-              required = false,
-              type = "string"
-            }
-          },
-          {
-            consumer_by = {
-              required = false,
-              type = "string",
-              default = "id_or_username",
-              one_of = {
-                "id_or_username",
-                "custom_id"
-              }
-            }
-          },
-          {
-            consumer_optional = {
-              required = false,
-              type = "boolean",
-              default = false
             }
           }
         }

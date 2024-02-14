@@ -52,11 +52,11 @@ function M.get_options(config, ngx)
     introspection_endpoint_auth_method = config.introspection_endpoint_auth_method,
     introspection_cache_ignore = config.introspection_cache_ignore,
     timeout = config.timeout,
-    bearer_only = config.bearer_only == "yes",
+    bearer_only = config.bearer_only,
     realm = config.realm,
     redirect_uri = config.redirect_uri or M.get_redirect_uri(ngx),
     scope = config.scope,
-    validate_scope = config.validate_scope == "yes",
+    validate_scope = config.validate_scope,
     response_type = config.response_type,
     ssl_verify = config.ssl_verify,
     use_jwks = config.use_jwks,
@@ -86,11 +86,7 @@ function M.get_options(config, ngx)
     proxy_opts = {
       http_proxy  = config.http_proxy,
       https_proxy = config.https_proxy
-    },
-    authorization_scopes_required = config.authorization_scopes_required,
-    consumer_claim = config.consumer_claim,
-    consumer_by = config.consumer_by,
-    consumer_optional = config.consumer_optional
+    }
   }
 end
 
@@ -99,7 +95,7 @@ end
 -- https://github.com/Kong/kong/blob/3.0.0/kong/plugins/oauth2/access.lua
 -- Copyright 2016-2022 Kong Inc. Licensed under the Apache License, Version 2.0
 -- https://github.com/Kong/kong/blob/3.0.0/LICENSE
-function M.set_consumer(consumer, credential)
+local function set_consumer(consumer, credential)
   local constants = require("kong.constants")
   kong.client.authenticate(consumer, credential)
 
@@ -152,11 +148,11 @@ function M.injectIDToken(idToken, headerName)
   kong.service.request.set_header(headerName, ngx.encode_base64(tokenStr))
 end
 
-function M.setCredentials(user, consumer)
+function M.setCredentials(user)
   local tmp_user = user
   tmp_user.id = user.sub
   tmp_user.username = user.preferred_username
-  M.set_consumer(consumer, tmp_user)
+  set_consumer(nil, tmp_user)
 end
 
 function M.injectUser(user, headerName)
@@ -201,7 +197,7 @@ function M.has_bearer_access_token()
   local header = ngx.req.get_headers()['Authorization']
   if header and header:find(" ") then
     local divider = header:find(' ')
-    if string.lower(header:sub(0, divider - 1)) == string.lower("Bearer") then
+    if string.lower(header:sub(0, divider-1)) == string.lower("Bearer") then
       return true
     end
   end
@@ -229,36 +225,6 @@ function M.has_common_item(t1, t2)
     end
   end
   return false
-end
-
--- verify if t1 has all the items for t2
-function M.containsAll(t1, t2)
-  for _, item2 in ipairs(t2) do
-    local found = false
-    for _, item1 in ipairs(t1) do
-      if item1 == item2 then
-        found = true
-        break
-      end
-    end
-    if not found then
-      return false
-    end
-  end
-  return true
-end
-
-function M.dump(o)
-  if type(o) == 'table' then
-    local s = '{ '
-    for k, v in pairs(o) do
-      if type(k) ~= 'number' then k = '"' .. k .. '"' end
-      s = s .. '[' .. k .. '] = ' .. M.dump(v) .. ','
-    end
-    return s .. '} '
-  else
-    return tostring(o)
-  end
 end
 
 return M

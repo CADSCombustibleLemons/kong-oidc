@@ -1,14 +1,51 @@
 local OidcHandler = {
-    VERSION = "1.3.0",
+    VERSION = "1.4.0",
     PRIORITY = 1000,
 }
 local utils = require("kong.plugins.oidc.utils")
 local filter = require("kong.plugins.oidc.filter")
 local session = require("kong.plugins.oidc.session")
 
+local function get_consumer_custom_id_cache_key(custom_id)
+  return "custom_id_key_" .. custom_id
+end
+
+local function load_consumer_by_custom_id(custom_id)
+  kong.log.debug('Consumer ' .. custom_id .. " not in cache checking db.")
+  local result, err = kong.db.consumers:select_by_custom_id(custom_id)
+  if not result then
+    kong.log.debug('Consumer not found in db: ' .. custom_id)
+    return nil, 404
+  end
+  kong.log.debug('Consumer found in db: ' .. result.id)
+  return result
+end
+
+local function match_consumer(email)
+  local consumer_cache_key = get_consumer_custom_id_cache_key(email)
+  local consumer, err = kong.cache:get(consumer_cache_key, nil, load_consumer_by_custom_id, email, true)
+  if err ~= nil then kong.cache:invalidate(consumer_cache_key) end
+
+  if err then
+    kong.log.err(err)
+  end
+
+  -- if not consumer and not conf.consumer_match_ignore_not_found then
+  --   return false, { status = 401, message = "Unable to find consumer for token" }
+  -- end
+
+  if consumer then
+    kong.log.debug('Consumer ' .. email .. ' match to ' .. consumer.username)
+    -- set_consumer(consumer, nil, nil)
+    return consumer
+  end
+end
 
 function OidcHandler:access(config)
   local oidcConfig = utils.get_options(config, ngx)
+  -- ngx.log(ngx.DEBUG, "oidcConfig.header_claims: " .. utils.table_to_string(oidcConfig.header_claims))
+  -- ngx.log(ngx.DEBUG, "oidcConfig: " .. utils.table_to_string(oidcConfig))
+  -- ngx.log(ngx.DEBUG, "x-oidc-email: " .. ngx.header["x-oidc-email"])
 
   -- partial support for plugin chaining: allow skipping requests, where higher priority
   -- plugin has already set the credentials. The 'config.anomyous' approach to define
@@ -34,7 +71,9 @@ function handle(oidcConfig)
   if oidcConfig.bearer_jwt_auth_enable then
     response = verify_bearer_jwt(oidcConfig)
     if response then
-      utils.setCredentials(response)
+      -- ngx.log(ngx.DEBUG, "email from response: " .. response.email)
+      local consumer = match_consumer(response.user.email or response.id_token.email)
+      utils.setCredentials(consumer, response)
       utils.injectGroups(response, oidcConfig.groups_claim)
       utils.injectHeaders(oidcConfig.header_names, oidcConfig.header_claims, { response })
       if not oidcConfig.disable_userinfo_header then
@@ -47,7 +86,9 @@ function handle(oidcConfig)
   if oidcConfig.introspection_endpoint then
     response = introspect(oidcConfig)
     if response then
-      utils.setCredentials(response)
+      -- ngx.log(ngx.DEBUG, "email from response: " .. response.user.email)
+      local consumer = match_consumer(response.user.email or response.id_token.email)
+      utils.setCredentials(consumer, response)
       utils.injectGroups(response, oidcConfig.groups_claim)
       utils.injectHeaders(oidcConfig.header_names, oidcConfig.header_claims, { response })
       if not oidcConfig.disable_userinfo_header then
@@ -59,9 +100,12 @@ function handle(oidcConfig)
   if response == nil then
     response = make_oidc(oidcConfig)
     if response then
+      -- ngx.log(ngx.DEBUG, "response details: " .. utils.table_to_string(response))
+      -- ngx.log(ngx.DEBUG, "email from response: " .. response.user.email)
       if response.user or response.id_token then
+        local consumer = match_consumer(response.user.email or response.id_token.email)
         -- is there any scenario where lua-resty-openidc would not provide id_token?
-        utils.setCredentials(response.user or response.id_token)
+        utils.setCredentials(consumer, response.user or response.id_token)
       end
       if response.user and response.user[oidcConfig.groups_claim]  ~= nil then
         utils.injectGroups(response.user, oidcConfig.groups_claim)

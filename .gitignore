@@ -14,3 +14,5 @@ bin/venv/
 *.iml
 .idea
 .dccache
+
+*.all.rock

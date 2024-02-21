@@ -174,7 +174,7 @@ function M.injectIDToken(idToken, headerName)
 end
 
 function M.setCredentials(consumer, user)
-  ngx.log(ngx.DEBUG, "user " .. M.table_to_string(user))
+  -- ngx.log(ngx.DEBUG, "user " .. M.table_to_string(user))
   local tmp_user = user
   tmp_user.id = user.sub
   tmp_user.username = user.preferred_username

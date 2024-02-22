@@ -72,7 +72,10 @@ function handle(oidcConfig)
     response = verify_bearer_jwt(oidcConfig)
     if response then
       -- ngx.log(ngx.DEBUG, "email from response: " .. response.email)
-      local consumer = match_consumer(response.user.email or response.id_token.email)
+      local consumer = nil
+      if response.user or response.id_token then
+        consumer = match_consumer(response.user.email or response.id_token.email)
+      end
       utils.setCredentials(consumer, response)
       utils.injectGroups(response, oidcConfig.groups_claim)
       utils.injectHeaders(oidcConfig.header_names, oidcConfig.header_claims, { response })
@@ -87,7 +90,10 @@ function handle(oidcConfig)
     response = introspect(oidcConfig)
     if response then
       -- ngx.log(ngx.DEBUG, "email from response: " .. response.user.email)
-      local consumer = match_consumer(response.user.email or response.id_token.email)
+      local consumer = nil
+      if response.user or response.id_token then
+        consumer = match_consumer(response.user.email or response.id_token.email)
+      end
       utils.setCredentials(consumer, response)
       utils.injectGroups(response, oidcConfig.groups_claim)
       utils.injectHeaders(oidcConfig.header_names, oidcConfig.header_claims, { response })
@@ -103,7 +109,12 @@ function handle(oidcConfig)
       -- ngx.log(ngx.DEBUG, "response details: " .. utils.table_to_string(response))
       -- ngx.log(ngx.DEBUG, "email from response: " .. response.user.email)
       if response.user or response.id_token then
-        local consumer = match_consumer(response.user.email or response.id_token.email)
+        local consumer = nil
+        if response.user and response.user.email then
+          consumer = match_consumer(response.user.email)
+        elseif response.id_token and response.id_token.email then
+          consumer = match_consumer(response.id_token.email)
+        end
         -- is there any scenario where lua-resty-openidc would not provide id_token?
         utils.setCredentials(consumer, response.user or response.id_token)
       end

@@ -62,6 +62,10 @@ function MockableCase:setUp()
     },
     ctx = {
       shared = {}
+    },
+    cache = {
+      get = function(...) end,
+      invalidate = function(...) end
     }
   }
   self.kong = _G.kong

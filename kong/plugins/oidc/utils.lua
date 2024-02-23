@@ -2,6 +2,31 @@ local cjson = require("cjson")
 
 local M = {}
 
+function M.table_to_string(tbl)
+  local result = ""
+  for k, v in pairs(tbl) do
+    -- Check the key type (ignore any numerical keys - assume its an array)
+    if type(k) == "string" then
+      result = result .. "[\"" .. k .. "\"]" .. "="
+    end
+
+    -- Check the value type
+    if type(v) == "table" then
+      result = result .. M.table_to_string(v)
+    elseif type(v) == "boolean" then
+      result = result .. tostring(v)
+    else
+      result = result .. "\"" .. v .. "\""
+    end
+    result = result .. ","
+  end
+  -- Remove leading commas from the result
+  if result ~= "" then
+    result = result:sub(1, result:len() - 1)
+  end
+  return result
+end
+
 local function parseFilters(csvFilters)
   local filters = {}
   if (not (csvFilters == nil)) and (not (csvFilters == ",")) then
@@ -148,11 +173,12 @@ function M.injectIDToken(idToken, headerName)
   kong.service.request.set_header(headerName, ngx.encode_base64(tokenStr))
 end
 
-function M.setCredentials(user)
+function M.setCredentials(consumer, user)
+  -- ngx.log(ngx.DEBUG, "user " .. M.table_to_string(user))
   local tmp_user = user
   tmp_user.id = user.sub
   tmp_user.username = user.preferred_username
-  set_consumer(nil, tmp_user)
+  set_consumer(consumer, tmp_user)
 end
 
 function M.injectUser(user, headerName)

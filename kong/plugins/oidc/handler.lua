@@ -22,8 +22,9 @@ local function load_consumer_by_custom_id(custom_id)
 end
 
 local function match_consumer(email)
-  local consumer_cache_key = get_consumer_custom_id_cache_key(email)
-  local consumer, err = kong.cache:get(consumer_cache_key, nil, load_consumer_by_custom_id, email, true)
+  local lowercase_email = string.lower(email)
+  local consumer_cache_key = get_consumer_custom_id_cache_key(lowercase_email)
+  local consumer, err = kong.cache:get(consumer_cache_key, nil, load_consumer_by_custom_id, lowercase_email, true)
   if err ~= nil then kong.cache:invalidate(consumer_cache_key) end
 
   if err then
@@ -35,7 +36,7 @@ local function match_consumer(email)
   -- end
 
   if consumer then
-    kong.log.debug('Consumer ' .. email .. ' match to ' .. consumer.username)
+    kong.log.debug('Consumer ' .. lowercase_email .. ' match to ' .. consumer.username)
     -- set_consumer(consumer, nil, nil)
     return consumer
   end
